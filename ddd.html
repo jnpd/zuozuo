@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>可爱动物消消乐</title>
+    <style>
+        body {
+            font-family: 'Arial Rounded MT Bold', 'Arial', sans-serif;
+            background-color: #ffe6f2;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: #ff6699;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+            margin-bottom: 10px;
+        }
+        
+        .game-info {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px auto;
+            max-width: 500px;
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .info-label {
+            font-size: 14px;
+            color: #ff6699;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .game-container {
+            margin: 20px auto;
+            width: 320px;
+            height: 320px;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 4px;
+            background-color: #ffccdd;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .tile {
+            background-color: #ffffff;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 28px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tile:hover {
+            transform: scale(1.05);
+        }
+        
+        .tile.selected {
+            background-color: #ffff99;
+            box-shadow: 0 0 10px #ffcc00;
+        }
+        
+        .tile.matched {
+            visibility: hidden;
+        }
+        
+        .controls {
+            margin-top: 20px;
+        }
+        
+        button {
+            background-color: #ff6699;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background-color: #ff3377;
+            transform: translateY(-2px);
+        }
+        
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            display: none;
+        }
+        
+        .game-over-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .game-over h2 {
+            color: #ff6699;
+            margin-bottom: 20px;
+        }
+        
+        .score-display {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>可爱动物消消乐</h1>
+    
+    <div class="game-info">
+        <div class="info-item">
+            <div class="info-label">时间</div>
+            <div class="info-value" id="time">60</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">级别</div>
+            <div class="info-value" id="level">1</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">分数</div>
+            <div class="info-value" id="score">0</div>
+        </div>
+    </div>
+    
+    <div class="game-container" id="game-board"></div>
+    
+    <div class="controls">
+        <button id="start-btn">开始游戏</button>
+    </div>
+    
+    <div class="game-over" id="game-over">
+        <div class="game-over-content">
+            <h2>游戏结束</h2>
+            <div class="score-display">你的分数：<span id="final-score">0</span></div>
+            <button id="restart-btn">再玩一次</button>
+        </div>
+    </div>
+    
+    <script>
+        // 动物表情符号数组
+        const animals = ['🐶', '🐱', '🐼', '🐰', '🦊', '🐻', '🐨', '🐯', '🦁', '🐮'];
+        
+        // 游戏状态
+        let gameState = {
+            board: [],
+            selected: null,
+            score: 0,
+            level: 1,
+            timeLeft: 60,
+            timer: null,
+            isPlaying: false,
+            matchesNeeded: 10 // 每级需要的匹配次数
+        };
+        
+        // DOM元素
+        const gameBoard = document.getElementById('game-board');
+        const timeDisplay = document.getElementById('time');
+        const levelDisplay = document.getElementById('level');
+        const scoreDisplay = document.getElementById('score');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const gameOverScreen = document.getElementById('game-over');
+        const finalScoreDisplay = document.getElementById('final-score');
+        
+        // 初始化游戏
+        function initGame() {
+            gameState = {
+                board: [],
+                selected: null,
+                score: 0,
+                level: 1,
+                timeLeft: 60,
+                timer: null,
+                isPlaying: false,
+                matchesNeeded: 10
+            };
+            
+            updateDisplay();
+            createBoard();
+        }
+        
+        // 创建游戏面板
+        function createBoard() {
+            gameBoard.innerHTML = '';
+            gameState.board = [];
+            
+            // 选择此级别将使用的动物
+            const levelAnimals = animals.slice(0, Math.min(5, 3 + Math.floor(gameState.level / 2)));
+            
+            // 创建足够的配对
+            let tiles = [];
+            for (let i = 0; i < 25; i += 2) {
+                const randomAnimal = levelAnimals[Math.floor(Math.random() * levelAnimals.length)];
+                tiles.push(randomAnimal, randomAnimal);
+            }
+            
+            // 如果总数是奇数，添加一个额外的
+            if (tiles.length < 25) {
+                tiles.push(levelAnimals[Math.floor(Math.random() * levelAnimals.length)]);
+            }
+            
+            // 洗牌算法
+            for (let i = tiles.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
+            }
+            
+            // 创建5x5网格
+            for (let row = 0; row < 5; row++) {
+                let boardRow = [];
+                for (let col = 0; col < 5; col++) {
+                    const index = row * 5 + col;
+                    const animal = tiles[index];
+                    
+                    const tile = document.createElement('div');
+                    tile.className = 'tile';
+                    tile.textContent = animal;
+                    tile.dataset.row = row;
+                    tile.dataset.col = col;
+                    tile.addEventListener('click', () => tileClick(row, col));
+                    
+                    gameBoard.appendChild(tile);
+                    
+                    boardRow.push({
+                        animal: animal,
+                        matched: false
+                    });
+                }
+                gameState.board.push(boardRow);
+            }
+        }
+        
+        // 点击方块
+        function tileClick(row, col) {
+            if (!gameState.isPlaying) return;
+            
+            const tile = gameState.board[row][col];
+            
+            // 如果已匹配或已选中，忽略点击
+            if (tile.matched) return;
+            if (gameState.selected && gameState.selected.row === row && gameState.selected.col === col) return;
+            
+            // 获取DOM元素
+            const tileElement = document.querySelector(`.tile[data-row="${row}"][data-col="${col}"]`);
+            
+            if (!gameState.selected) {
+                // 第一次选择
+                gameState.selected = { row, col, animal: tile.animal };
+                tileElement.classList.add('selected');
+            } else {
+                // 第二次选择
+                const firstSelected = document.querySelector(
+                    `.tile[data-row="${gameState.selected.row}"][data-col="${gameState.selected.col}"]`
+                );
+                
+                if (tile.animal === gameState.selected.animal) {
+                    // 匹配成功
+                    tile.matched = true;
+                    gameState.board[gameState.selected.row][gameState.selected.col].matched = true;
+                    
+                    tileElement.classList.add('matched');
+                    firstSelected.classList.add('matched');
+                    
+                    // 增加分数
+                    gameState.score += 10 * gameState.level;
+                    updateDisplay();
+                    
+                    // 检查是否完成当前级别
+                    checkLevelCompletion();
+                } else {
+                    // 不匹配，移除选中效果
+                    setTimeout(() => {
+                        tileElement.classList.remove('selected');
+                        firstSelected.classList.remove('selected');
+                    }, 500);
+                }
+                
+                // 无论是否匹配，都重置选择
+                firstSelected.classList.remove('selected');
+                gameState.selected = null;
+            }
+        }
+        
+        // 检查级别完成情况
+        function checkLevelCompletion() {
+            const matchedCount = gameState.board.flat().filter(tile => tile.matched).length / 2;
+            
+            if (matchedCount >= gameState.matchesNeeded) {
+                // 升级
+                gameState.level++;
+                gameState.matchesNeeded += 5; // 下一级需要更多匹配
+                gameState.timeLeft += 30; // 奖励时间
+                
+                updateDisplay();
+                
+                // 创建新的游戏板
+                setTimeout(() => {
+                    createBoard();
+                }, 1000);
+            } else if (isGameBoardCleared()) {
+                // 如果所有方块都已匹配但未达到下一级要求，重新生成板
+                setTimeout(() => {
+                    createBoard();
+                }, 1000);
+            }
+        }
+        
+        // 检查游戏板是否已清空
+        function isGameBoardCleared() {
+            return gameState.board.flat().every(tile => tile.matched);
+        }
+        
+        // 更新显示
+        function updateDisplay() {
+            timeDisplay.textContent = gameState.timeLeft;
+            levelDisplay.textContent = gameState.level;
+            scoreDisplay.textContent = gameState.score;
+        }
+        
+        // 开始计时器
+        function startTimer() {
+            gameState.timer = setInterval(() => {
+                gameState.timeLeft--;
+                updateDisplay();
+                
+                if (gameState.timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+        
+        // 结束游戏
+        function endGame() {
+            clearInterval(gameState.timer);
+            gameState.isPlaying = false;
+            finalScoreDisplay.textContent = gameState.score;
+            gameOverScreen.style.display = 'flex';
+        }
+        
+        // 开始游戏
+        startBtn.addEventListener('click', () => {
+            if (gameState.isPlaying) return;
+            
+            initGame();
+            gameState.isPlaying = true;
+            startTimer();
+            startBtn.textContent = '游戏中...';
+        });
+        
+        // 重新开始
+        restartBtn.addEventListener('click', () => {
+            gameOverScreen.style.display = 'none';
+            initGame();
+            gameState.isPlaying = true;
+            startTimer();
+            startBtn.textContent = '游戏中...';
+        });
+        
+        // 初始化游戏
+        initGame();
+    </script>
+</body>
+</html>

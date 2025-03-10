@@ -48,9 +48,11 @@
         }
         
         .game-board {
-            border: 2px solid #333;
-            background-color: #222;
-            position: relative;
+            /* background-color: black; */
+            display: grid;
+            gap: 1px;
+            padding: 1px;
+            /* border: 2px solid #333; */
         }
         
         .next-piece {
@@ -163,6 +165,51 @@
             justify-content: center;
             z-index: 5;
             font-size: 20px;
+        }
+        
+        /* 添加移动端优化的样式 */
+        @media (max-width: 768px) {
+            .game-container {
+                padding: 10px;
+                height: 100vh;
+                justify-content: space-between;
+                max-width: 100%;
+            }
+            
+            .game-board {
+                width: 100%;
+                max-width: 95vw;  /* 限制最大宽度 */
+                aspect-ratio: 10 / 20;  /* 保持宽高比 */
+                margin: 0 auto;  /* 水平居中 */
+            }
+            
+            .game-cell {
+                width: auto;  /* 让单元格自适应网格 */
+                height: auto;
+                aspect-ratio: 1;  /* 保持方块为正方形 */
+            }
+            
+            .controls {
+                margin-bottom: 20px;
+                max-width: 100%;
+            }
+            
+            .control-btn {
+                padding: 20px;  /* 增大按钮点击区域 */
+                min-height: 60px;
+            }
+            
+            .next-piece {
+                margin: 15px 0;  /* 调整预览区域间距 */
+            }
+        }
+        
+        /* 禁用双击缩放 */
+        * {
+            touch-action: manipulation;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
     </style>
 </head>
@@ -319,11 +366,29 @@
 
         // 初始化游戏
         function initGame() {
-            // 计算合适的方块大小
-            const boardWidth = Math.min(window.innerWidth * 0.9, 300);
-            config.cellSize = boardWidth / config.cols;
+            const isMobile = window.innerWidth <= 768;
+            const screenHeight = window.innerHeight;
+            const screenWidth = window.innerWidth;
             
-            // 设置游戏板大小
+            // 重新计算方块大小
+            if (isMobile) {
+                // 计算可用高度（考虑其他UI元素）
+                const availableHeight = screenHeight * 0.7; // 游戏区域占70%
+                const availableWidth = screenWidth * 0.95;  // 留一些边距
+                
+                // 基于宽高比计算合适的单元格大小
+                config.cellSize = Math.min(
+                    availableHeight / config.rows,
+                    availableWidth / config.cols
+                );
+                
+                // 确保方块大小为整数
+                config.cellSize = Math.floor(config.cellSize);
+            } else {
+                config.cellSize = 30; // 桌面端固定大小
+            }
+            
+            // 更新游戏板大小
             boardElement.style.width = `${config.cellSize * config.cols}px`;
             boardElement.style.height = `${config.cellSize * config.rows}px`;
             
@@ -690,25 +755,52 @@
         });
 
         // 触摸控制
-        leftButton.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            movePiece('left');
+        let touchStartTime = 0;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        
+        boardElement.addEventListener('touchstart', (e) => {
+            if (gameState.paused || gameState.gameOver) return;
+            
+            touchStartTime = Date.now();
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
         });
         
-        rightButton.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            movePiece('right');
+        boardElement.addEventListener('touchend', (e) => {
+            if (gameState.paused || gameState.gameOver) return;
+            
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+            const touchDuration = Date.now() - touchStartTime;
+            
+            const deltaX = touchEndX - touchStartX;
+            const deltaY = touchEndY - touchStartY;
+            
+            // 快速点击旋转
+            if (touchDuration < 200 && Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
+                rotatePiece();
+                return;
+            }
+            
+            // 滑动手势
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                // 水平滑动
+                if (deltaX > 30) {
+                    movePiece('right');
+                } else if (deltaX < -30) {
+                    movePiece('left');
+                }
+            } else if (deltaY > 50) {
+                // 向下滑动
+                hardDrop();
+            }
         });
         
-        rotateButton.addEventListener('touchstart', (e) => {
+        // 阻止页面弹性滚动
+        document.body.addEventListener('touchmove', (e) => {
             e.preventDefault();
-            rotatePiece();
-        });
-        
-        downButton.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            hardDrop();
-        });
+        }, { passive: false });
 
         // 鼠标控制
         leftButton.addEventListener('click', () => movePiece('left'));
